@@ -10,39 +10,46 @@ import { coachChat } from '@/ai/flows/coach-chat';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/context/auth-context';
-import { saveChatHistory, getChatHistory, type Message } from '@/lib/firebase/chat';
+import { saveMessages, getMessages, type Message } from '@/lib/firebase/chat';
 
+interface ChatInterfaceProps {
+    chatId: string | null;
+    onChatCreated: (newChatId: string) => void;
+}
 
-export function ChatInterface() {
+export function ChatInterface({ chatId, onChatCreated }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [currentChatId, setCurrentChatId] = useState<string | null>(chatId);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isHistoryLoading, setIsHistoryLoading] = useState(true);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const { user } = useAuth();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (user) {
+    setCurrentChatId(chatId);
+    if (user && chatId) {
       const loadHistory = async () => {
         setIsHistoryLoading(true);
         try {
-          const history = await getChatHistory(user.uid);
+          const history = await getMessages(user.uid, chatId);
           setMessages(history);
         } catch (error) {
             console.error("Failed to load chat history:", error);
+            setMessages([]);
         } finally {
           setIsHistoryLoading(false);
         }
       };
       loadHistory();
     } else {
+        setMessages([]);
         setIsHistoryLoading(false);
     }
-  }, [user]);
+  }, [user, chatId]);
 
 
   useEffect(() => {
-    // Scroll to bottom when new messages are added or on initial load
     if (scrollAreaRef.current) {
       scrollAreaRef.current.scrollTo({
         top: scrollAreaRef.current.scrollHeight,
@@ -57,13 +64,13 @@ export function ChatInterface() {
 
     const userMessage: Message = { role: 'user', text: textToSend };
     
-    const newMessagesWithUser = [...messages, userMessage];
-    setMessages(newMessagesWithUser);
+    const newMessages = [...messages, userMessage];
+    setMessages(newMessages);
     setInput('');
     setIsLoading(true);
 
     try {
-        const historyForApi = newMessagesWithUser.map(msg => ({
+        const historyForApi = newMessages.map(msg => ({
             role: msg.role,
             text: msg.text
         }));
@@ -75,10 +82,15 @@ export function ChatInterface() {
 
         const modelMessage: Message = { role: 'model', text: responseText };
         
-        const finalMessages = [...newMessagesWithUser, modelMessage];
+        const finalMessages = [...newMessages, modelMessage];
         setMessages(finalMessages);
         
-        await saveChatHistory(user.uid, finalMessages);
+        const savedChatId = await saveMessages(user.uid, currentChatId, finalMessages);
+        
+        if (!currentChatId) {
+            setCurrentChatId(savedChatId);
+            onChatCreated(savedChatId);
+        }
 
     } catch (error) {
       console.error("Chat API error:", error);
@@ -93,12 +105,20 @@ export function ChatInterface() {
     handleSend("אני צריכה קצת עידוד ותמיכה");
   };
 
+  if (isHistoryLoading) {
+      return (
+          <Card className="flex flex-col h-full items-center justify-center">
+              <LoaderCircle className="h-8 w-8 animate-spin text-primary" />
+          </Card>
+      )
+  }
+
   return (
-    <Card className="flex flex-col h-[70vh]">
+    <Card className="flex flex-col h-full shadow-none border-0 rounded-none">
       <CardHeader className="border-b">
         <div className="flex items-center justify-between">
             <h3 className="font-semibold text-lg">מאמן/ת AI</h3>
-            <Button variant="ghost" size="sm" onClick={handleEncouragement} disabled={isLoading || isHistoryLoading}>
+            <Button variant="ghost" size="sm" onClick={handleEncouragement} disabled={isLoading}>
                 <Sparkles className="ml-2 h-4 w-4" />
                 בקשי עידוד
             </Button>
@@ -107,54 +127,53 @@ export function ChatInterface() {
       <CardContent className="flex-1 p-0">
           <ScrollArea className="h-full p-4" ref={scrollAreaRef}>
              <div className="space-y-4">
-              {isHistoryLoading ? (
-                <div className="flex items-center justify-center h-full">
-                  <LoaderCircle className="h-8 w-8 animate-spin text-primary" />
+                {messages.length === 0 && !isLoading && (
+                    <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground p-8">
+                        <Bot className="w-16 h-16 mb-4"/>
+                        <h3 className="text-xl font-semibold">שיחה חדשה</h3>
+                        <p>אפשר לשאול כל דבר, או לבקש עידוד.</p>
+                    </div>
+                )}
+                {messages.map((message, index) => (
+                <div
+                    key={index}
+                    className={cn(
+                    'flex items-start gap-3',
+                    message.role === 'user' ? 'justify-end' : 'justify-start'
+                    )}
+                >
+                    {message.role === 'model' && (
+                    <Avatar className="w-8 h-8">
+                        <AvatarFallback><Bot /></AvatarFallback>
+                    </Avatar>
+                    )}
+                    <div
+                    className={cn(
+                        'rounded-lg px-4 py-2 max-w-[80%]',
+                        message.role === 'user'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted'
+                    )}
+                    >
+                    <p className="text-sm whitespace-pre-wrap">{message.text}</p>
+                    </div>
+                    {message.role === 'user' && (
+                    <Avatar className="w-8 h-8">
+                        <AvatarFallback>א</AvatarFallback>
+                    </Avatar>
+                    )}
                 </div>
-              ) : (
-                <>
-                  {messages.map((message, index) => (
-                  <div
-                      key={index}
-                      className={cn(
-                      'flex items-start gap-3',
-                      message.role === 'user' ? 'justify-end' : 'justify-start'
-                      )}
-                  >
-                      {message.role === 'model' && (
-                      <Avatar className="w-8 h-8">
-                          <AvatarFallback><Bot /></AvatarFallback>
-                      </Avatar>
-                      )}
-                      <div
-                      className={cn(
-                          'rounded-lg px-4 py-2 max-w-[80%]',
-                          message.role === 'user'
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted'
-                      )}
-                      >
-                      <p className="text-sm whitespace-pre-wrap">{message.text}</p>
-                      </div>
-                       {message.role === 'user' && (
-                      <Avatar className="w-8 h-8">
-                          <AvatarFallback>א</AvatarFallback>
-                      </Avatar>
-                      )}
-                  </div>
-                  ))}
-                  {isLoading && (
-                      <div className="flex items-start gap-3 justify-start">
-                          <Avatar className="w-8 h-8">
-                              <AvatarFallback><Bot /></AvatarFallback>
-                          </Avatar>
-                          <div className="rounded-lg px-4 py-2 bg-muted flex items-center justify-center">
-                            <LoaderCircle className="h-5 w-5 animate-spin text-primary" />
-                          </div>
-                      </div>
-                  )}
-                </>
-              )}
+                ))}
+                {isLoading && (
+                    <div className="flex items-start gap-3 justify-start">
+                        <Avatar className="w-8 h-8">
+                            <AvatarFallback><Bot /></AvatarFallback>
+                        </Avatar>
+                        <div className="rounded-lg px-4 py-2 bg-muted flex items-center justify-center">
+                        <LoaderCircle className="h-5 w-5 animate-spin text-primary" />
+                        </div>
+                    </div>
+                )}
              </div>
           </ScrollArea>
       </CardContent>
@@ -170,10 +189,10 @@ export function ChatInterface() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="כתבו כאן את הודעתכם..."
-            disabled={isLoading || isHistoryLoading}
+            disabled={isLoading}
             dir="rtl"
           />
-          <Button type="submit" size="icon" disabled={isLoading || isHistoryLoading || !input.trim()}>
+          <Button type="submit" size="icon" disabled={isLoading || !input.trim()}>
             <Send className="h-4 w-4" />
             <span className="sr-only">שלח</span>
           </Button>
