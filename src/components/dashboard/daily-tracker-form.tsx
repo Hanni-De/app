@@ -67,16 +67,23 @@ export function DailyTrackerForm() {
   useEffect(() => {
     if (user) {
       const today = new Date().toISOString().split('T')[0];
-      const checkSummary = async () => {
+      const loadTodaysData = async () => {
         const entry = await getDailyEntry(user.uid, today);
-        if (entry?.summary) {
-          setSummary(entry.summary);
-          setIsSummaryGenerated(true);
+        if (entry) {
+          // Reset the form with the fetched data.
+          // This will populate all the fields.
+          form.reset(entry);
+
+          // If a summary exists in the data, update the state
+          if (entry.summary) {
+            setSummary(entry.summary);
+            setIsSummaryGenerated(true);
+          }
         }
       };
-      checkSummary();
+      loadTodaysData();
     }
-  }, [user]);
+  }, [user, form]);
 
   function calculateCompliance(values: DailyTrackerFormValues): { score: number, dailySummary: string, compliance: any } {
     let score = 0;
