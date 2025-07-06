@@ -50,21 +50,23 @@ const prompt = ai.definePrompt({
   name: 'motivationalMessagePrompt',
   input: {schema: MotivationalMessageInputSchema},
   output: {schema: MotivationalMessageOutputSchema},
-  prompt: `You are a supportive and encouraging health coach. Based on the user's daily summary and reported data, provide a short, uplifting, and personalized motivational message to encourage them on their health journey.
+  prompt: `You are a supportive and encouraging health coach. Your goal is to provide a short, uplifting, and personalized motivational message based on the user's daily data.
 
-Here is the user's daily summary:
-{{dailySummary}}
+Please follow these instructions to structure your message:
+1.  **Acknowledge achievements:** Specifically mention one or two positive things the user accomplished today (e.g., "Great job on drinking all your water!" or "Well done on getting your activity in!").
+2.  **Connect to feelings:** Gently link their reported mood, fatigue, or pain to their actions. For example: "I see your fatigue level was high; perhaps taking a few minutes for a relaxation exercise tomorrow could help." or "It's wonderful to see you felt calm after your relaxation exercises."
+3.  **Offer a gentle suggestion for improvement:** Based on an area that was missed, offer one simple, encouraging tip for tomorrow. For example: "Every small step counts, maybe just one relaxation exercise tomorrow?"
+4.  **Keep it positive and concise:** The message must be warm, non-judgmental, and no more than 50 words.
 
-Here is the user's reported data:
+User's daily data:
+Goal Compliance Summary: {{dailySummary}}
 Mood: {{mood}}
 Fatigue Level: {{fatigueLevel}}
 Pain Level: {{painLevel}}
 Hydration Compliance: {{hydrationCompliance}}
 Diet Compliance: {{dietCompliance}}
 Activity Compliance: {{activityCompliance}}
-Relaxation Compliance: {{relaxationCompliance}}
-
-Write a message that is no more than 50 words.`,
+Relaxation Compliance: {{relaxationCompliance}}`,
 });
 
 const generateMotivationalMessageFlow = ai.defineFlow(
