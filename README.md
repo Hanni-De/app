@@ -4,10 +4,28 @@ This is a Next.js application built in Firebase Studio.
 
 ## Running Locally
 
-1.  Install dependencies: `npm install`
-2.  Make sure to add your Firebase credentials to a `.env` file.
-3.  Run the development server: `npm run dev`
-4.  Open [http://localhost:9002](http://localhost:9002) with your browser.
+1.  **Install Dependencies:** If you haven't already, open a terminal in the project folder and run:
+    ```bash
+    npm install
+    ```
+
+2.  **Set Environment Variables:** Make sure you have a `.env` file in the root of the project with your Firebase credentials. Without this, authentication and database features will not work.
+
+3.  **Run the Development Server:**
+    ```bash
+    npm run dev
+    ```
+
+4.  **Open the App:** Open [http://localhost:9002](http://localhost:9002) with your browser to see the application.
+
+### Developing AI Features (Optional)
+
+This project uses Genkit for its AI features. If you want to debug or inspect the AI flows, you can run the Genkit development UI in a *separate terminal*:
+
+```bash
+npm run genkit:watch
+```
+This will start the Genkit developer UI, typically available at `http://localhost:4000`, where you can see traces of your AI flow runs.
 
 ## Deploying to Your Own Server
 
