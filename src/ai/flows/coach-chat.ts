@@ -25,6 +25,10 @@ const CoachChatOutputSchema = z.string().describe("The AI's response.");
 export type CoachChatOutput = z.infer<typeof CoachChatOutputSchema>;
 
 export async function coachChat(input: CoachChatInput): Promise<CoachChatOutput> {
+  if (!process.env.GOOGLE_API_KEY) {
+    console.error("GOOGLE_API_KEY is not set. Cannot call AI function.");
+    return "מצטערת, המאמן הדיגיטלי אינו זמין כרגע. יש לוודא שמפתח ה-API הוגדר כראוי.";
+  }
   return coachChatFlow(input);
 }
 

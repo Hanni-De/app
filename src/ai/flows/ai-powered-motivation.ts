@@ -43,6 +43,10 @@ export type MotivationalMessageOutput = z.infer<typeof MotivationalMessageOutput
 export async function generateMotivationalMessage(
   input: MotivationalMessageInput
 ): Promise<MotivationalMessageOutput> {
+  if (!process.env.GOOGLE_API_KEY) {
+    console.error("GOOGLE_API_KEY is not set. Cannot call AI function.");
+    return { message: "המאמן הדיגיטלי אינו זמין כרגע. יש לוודא שמפתח ה-API הוגדר כראוי." };
+  }
   return generateMotivationalMessageFlow(input);
 }
 
