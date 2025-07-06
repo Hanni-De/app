@@ -22,6 +22,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const menuItems = [
     { href: "/", label: "מעקב יומי", icon: Home },
+    { href: "/coach", label: "שיחה עם AI", icon: BotMessageSquare },
     { href: "/reports", label: "דוחות", icon: LineChart },
     { href: "/settings", label: "הגדרות", icon: Settings },
   ];
