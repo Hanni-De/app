@@ -95,10 +95,13 @@ export const getDailyEntries = async (userId: string): Promise<DailyEntry[]> => 
         throw new Error("Firestore is not initialized.");
     }
     const entries: DailyEntry[] = [];
-    const q = query(collection(db, 'users', userId, 'dailyEntries'), orderBy('__name__', 'desc'));
+    const q = query(collection(db, 'users', userId, 'dailyEntries'));
     const querySnapshot = await getDocs(q);
     querySnapshot.forEach((doc) => {
         entries.push({ id: doc.id, ...doc.data() } as DailyEntry);
     });
+    // Sort client-side to avoid needing a Firestore index.
+    // The ID is the date string 'YYYY-MM-DD', so a reverse alphabetical sort is a chronological sort.
+    entries.sort((a, b) => b.id.localeCompare(a.id));
     return entries;
 };
