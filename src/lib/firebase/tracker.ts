@@ -66,6 +66,24 @@ export const saveDailySummary = async (
     await setDoc(entryRef, { summary }, { merge: true });
 };
 
+/**
+ * Fetches a single daily entry for a specific user and date.
+ * @param userId The ID of the user.
+ * @param date The date of the entry in 'YYYY-MM-DD' format.
+ * @returns A promise that resolves to the daily entry, or null if not found.
+ */
+export const getDailyEntry = async (userId: string, date: string): Promise<DailyEntry | null> => {
+    if (!db) {
+        throw new Error("Firestore is not initialized.");
+    }
+    const entryRef = doc(db, 'users', userId, 'dailyEntries', date);
+    const docSnap = await getDoc(entryRef);
+    if (docSnap.exists()) {
+        return { id: docSnap.id, ...docSnap.data() } as DailyEntry;
+    }
+    return null;
+};
+
 
 /**
  * Fetches all daily entries for a specific user.

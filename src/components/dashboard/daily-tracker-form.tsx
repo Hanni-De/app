@@ -20,12 +20,12 @@ import { Slider } from "../ui/slider";
 import { Checkbox } from "../ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { LoaderCircle, Utensils, HeartPulse, Scale, Activity, Smile, Bed, BrainCircuit, NotebookText, Moon } from "lucide-react";
 import { dailyTrackerFormSchema, type DailyTrackerFormValues } from "@/lib/schemas/tracker.schema";
 import { useAuth } from "@/context/auth-context";
-import { saveDailyEntry, saveDailySummary } from "@/lib/firebase/tracker";
+import { saveDailyEntry, saveDailySummary, getDailyEntry } from "@/lib/firebase/tracker";
 import { generateMotivationalMessage, type MotivationalMessageInput } from "@/ai/flows/ai-powered-motivation";
 import { DailySummary } from "./daily-summary";
 
@@ -35,6 +35,7 @@ export function DailyTrackerForm() {
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [summary, setSummary] = useState<{ message: string; score: number } | null>(null);
+  const [isSummaryGenerated, setIsSummaryGenerated] = useState(false);
 
   const form = useForm<DailyTrackerFormValues>({
     resolver: zodResolver(dailyTrackerFormSchema),
@@ -58,6 +59,20 @@ export function DailyTrackerForm() {
       generalNotes: "",
     },
   });
+
+  useEffect(() => {
+    if (user) {
+      const today = new Date().toISOString().split('T')[0];
+      const checkSummary = async () => {
+        const entry = await getDailyEntry(user.uid, today);
+        if (entry?.summary) {
+          setSummary(entry.summary);
+          setIsSummaryGenerated(true);
+        }
+      };
+      checkSummary();
+    }
+  }, [user]);
 
   function calculateCompliance(values: DailyTrackerFormValues): { score: number, dailySummary: string, compliance: any } {
     let score = 0;
@@ -91,7 +106,7 @@ export function DailyTrackerForm() {
     return { score, dailySummary, compliance };
   }
 
-  async function onSubmit(values: DailyTrackerFormValues) {
+  async function onSave(values: DailyTrackerFormValues) {
     if (!user) {
       toast({
         title: "שגיאה",
@@ -102,19 +117,53 @@ export function DailyTrackerForm() {
     }
     
     setIsSaving(true);
-    setSummary(null);
-
     try {
       const entryDate = new Date().toISOString().split('T')[0];
       await saveDailyEntry(user.uid, entryDate, values);
 
       toast({
         title: "הנתונים נשמרו!",
-        description: "השינויים שלך נשמרו בהצלחה. כעת ניצור עבורך סיכום יומי.",
+        description: "השינויים שלך נשמרו בהצלחה.",
       });
-      setIsSaving(false);
-      setIsGenerating(true);
 
+    } catch (error) {
+      console.error("Data save failed:", error);
+      toast({
+        title: "שגיאה",
+        description: "הייתה בעיה בשמירת הנתונים.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  }
+  
+  async function handleGenerateSummary() {
+    if (!user) {
+      toast({ title: "שגיאה", description: "עליך להתחבר כדי ליצור סיכום.", variant: "destructive" });
+      return;
+    }
+    
+    setIsGenerating(true);
+
+    // Validate and get the latest form values
+    const isValid = await form.trigger();
+    if (!isValid) {
+      toast({
+        title: "שדות חסרים",
+        description: "יש למלא את כל השדות הנדרשים לפני הפקת סיכום.",
+        variant: "destructive",
+      });
+      setIsGenerating(false);
+      return;
+    }
+    const values = form.getValues();
+
+    try {
+      // Save latest data before generating
+      const entryDate = new Date().toISOString().split('T')[0];
+      await saveDailyEntry(user.uid, entryDate, values);
+      
       const { score, dailySummary, compliance } = calculateCompliance(values);
 
       const aiInput: MotivationalMessageInput = {
@@ -128,27 +177,34 @@ export function DailyTrackerForm() {
       const summaryResponse = await generateMotivationalMessage(aiInput);
       
       const newSummary = { message: summaryResponse.message, score };
-      setSummary(newSummary);
       
       await saveDailySummary(user.uid, entryDate, newSummary);
+      
+      setSummary(newSummary);
+      setIsSummaryGenerated(true);
+
+      toast({
+        title: "הסיכום מוכן!",
+        description: "הסיכום היומי החכם שלך נוצר בהצלחה.",
+      });
 
     } catch (error) {
-      console.error("Submission or summary generation failed:", error);
+      console.error("Summary generation failed:", error);
       toast({
         title: "שגיאה",
-        description: "הייתה בעיה בשמירת הנתונים או ביצירת הסיכום. נסו שוב מאוחר יותר.",
+        description: "הייתה בעיה ביצירת הסיכום. נסו שוב מאוחר יותר.",
         variant: "destructive",
       });
     } finally {
-      setIsSaving(false);
       setIsGenerating(false);
     }
   }
 
+
   return (
     <div>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+        <form onSubmit={form.handleSubmit(onSave)} className="space-y-8">
           <FormField
             control={form.control}
             name="waterIntake"
@@ -276,10 +332,20 @@ export function DailyTrackerForm() {
           
           <FormField control={form.control} name="generalNotes" render={({ field }) => (<FormItem><FormLabel className="text-lg flex items-center gap-2"><NotebookText/>הערות כלליות</FormLabel><FormControl><Textarea placeholder="מקום למחשבות, תחושות וכל מה שתרצי לשתף..." {...field} /></FormControl></FormItem>)} />
 
-          <div className="flex justify-center pt-4">
+          <div className="flex justify-center items-center gap-4 pt-4">
             <Button type="submit" size="lg" disabled={isSaving || isGenerating}>
-                {(isSaving || isGenerating) && <LoaderCircle className="ml-2 h-4 w-4 animate-spin" />}
-                {isSaving ? "שומר..." : isGenerating ? "יוצר סיכום..." : "שמור וקבל סיכום"}
+                {isSaving && <LoaderCircle className="ml-2 h-4 w-4 animate-spin" />}
+                {isSaving ? "שומר..." : "שמור שינויים"}
+            </Button>
+            <Button
+              type="button"
+              size="lg"
+              variant="default"
+              onClick={handleGenerateSummary}
+              disabled={isSaving || isGenerating || isSummaryGenerated}
+            >
+              {(isGenerating) && <LoaderCircle className="ml-2 h-4 w-4 animate-spin" />}
+              {isSummaryGenerated ? "הסיכום הופק" : isGenerating ? "יוצר סיכום..." : "הפק סיכום יומי"}
             </Button>
           </div>
         </form>
@@ -291,7 +357,7 @@ export function DailyTrackerForm() {
                 מייצר סיכום יומי חכם...
             </div>
         )}
-        {summary && (
+        {summary && !isGenerating && (
             <DailySummary motivationalMessage={summary.message} score={summary.score} />
         )}
       </div>
