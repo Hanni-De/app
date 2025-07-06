@@ -1,5 +1,9 @@
 "use client";
 
+import { useAuth } from "@/context/auth-context";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { FullPageLoader } from "./full-page-loader";
 import {
   SidebarProvider,
   Sidebar,
@@ -12,21 +16,53 @@ import {
   SidebarTrigger,
   SidebarFooter
 } from "@/components/ui/sidebar";
-import { Home, LineChart, Settings, BotMessageSquare } from "lucide-react";
+import { Home, LineChart, Settings, BotMessageSquare, LogOut } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Button } from "../ui/button";
 
-export function AppLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-
-  const menuItems = [
+const menuItems = [
     { href: "/", label: "מעקב יומי", icon: Home },
     { href: "/coach", label: "שיחה עם AI", icon: BotMessageSquare },
     { href: "/reports", label: "דוחות", icon: LineChart },
     { href: "/settings", label: "הגדרות", icon: Settings },
-  ];
+];
 
+const authRoutes = ['/login', '/signup'];
+
+export function AppLayout({ children }: { children: React.ReactNode }) {
+  const { user, loading, logout } = useAuth();
+  const pathname = usePathname();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (loading) return;
+
+    const isAuthRoute = authRoutes.includes(pathname);
+
+    if (!user && !isAuthRoute) {
+      router.push('/login');
+    } else if (user && isAuthRoute) {
+      router.push('/');
+    }
+  }, [user, loading, pathname, router]);
+
+  if (loading) {
+    return <FullPageLoader />;
+  }
+
+  const isAuthPage = authRoutes.includes(pathname);
+
+  if (isAuthPage) {
+    return (
+        <main className="flex min-h-screen flex-col items-center justify-center p-4 bg-background">
+            {children}
+        </main>
+    );
+  }
+
+  if (!user) {
+    return <FullPageLoader />;
+  }
+  
   return (
     <SidebarProvider>
       <Sidebar side="right" className="border-l">
@@ -75,6 +111,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             ))}
           </SidebarMenu>
         </SidebarContent>
+        <SidebarFooter>
+            <SidebarMenu>
+                <SidebarMenuItem>
+                    <SidebarMenuButton onClick={logout} tooltip={{ children: "התנתקות", side: "left" }}>
+                        <LogOut />
+                        <span>התנתקות</span>
+                    </SidebarMenuButton>
+                </SidebarMenuItem>
+            </SidebarMenu>
+        </SidebarFooter>
       </Sidebar>
       <SidebarInset>
         <header className="p-3 border-b flex items-center gap-4 sticky top-0 bg-background/80 backdrop-blur-sm z-10">
