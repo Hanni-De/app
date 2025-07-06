@@ -7,22 +7,37 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 
 interface WaterTrackerProps {
-  value: number; // Not used to control, but good for form state consistency
+  value: number;
   onChange: (value: number) => void;
 }
 
-export function WaterTracker({ onChange }: WaterTrackerProps) {
-  const [glasses, setGlasses] = useState<number[]>(Array(8).fill(0)); // 0 = empty, 0.5 = half, 1 = full
+export function WaterTracker({ value = 0, onChange }: WaterTrackerProps) {
+  // This state is purely for the visual representation of the glasses.
+  const [glasses, setGlasses] = useState<number[]>(Array(8).fill(0));
 
-  const totalCups = glasses.reduce((acc, cup) => acc + cup, 0);
-
+  // This effect synchronizes the visual `glasses` state with the `value` from the parent form.
+  // This is crucial for loading saved data when the form is reset.
   useEffect(() => {
-    onChange(totalCups);
-  }, [totalCups, onChange]);
+    const newGlasses = Array(8).fill(0);
+    let remainingValue = value || 0;
+    // We fill the glasses from left to right to represent the total value.
+    for (let i = 0; i < 8; i++) {
+      if (remainingValue >= 1) {
+        newGlasses[i] = 1;
+        remainingValue -= 1;
+      } else if (remainingValue >= 0.5) {
+        newGlasses[i] = 0.5;
+        remainingValue = 0;
+      }
+    }
+    setGlasses(newGlasses);
+  }, [value]); // This runs only when the `value` prop from the parent form changes.
 
   const handleGlassClick = (index: number) => {
+    // We create a temporary copy of the current visual state to modify it.
     const newGlasses = [...glasses];
     const currentState = newGlasses[index];
+    
     if (currentState === 0) {
       newGlasses[index] = 0.5;
     } else if (currentState === 0.5) {
@@ -30,9 +45,15 @@ export function WaterTracker({ onChange }: WaterTrackerProps) {
     } else {
       newGlasses[index] = 0;
     }
-    setGlasses(newGlasses);
+    
+    // Calculate the new total from our temporary array and report it up to the parent form.
+    // The parent form will update the `value` prop, and the useEffect will re-sync the view.
+    const newTotal = newGlasses.reduce((acc, cup) => acc + cup, 0);
+    onChange(newTotal);
   };
   
+  // The displayed total is always taken directly from the form's value for consistency.
+  const totalCups = value;
   const isGoalMet = totalCups >= 8;
 
   return (
