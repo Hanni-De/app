@@ -45,7 +45,7 @@ const coachChatFlow = ai.defineFlow(
         content: [{ text: msg.text }]
     }));
 
-    const { output } = await ai.generate({
+    const { text } = await ai.generate({
       system: `You are a friendly, supportive, and empathetic health coach. Your goal is to help the user navigate their health journey.
 - Be encouraging and positive.
 - Provide helpful, safe, and general health and wellness advice.
@@ -57,6 +57,6 @@ const coachChatFlow = ai.defineFlow(
       history: history,
     });
 
-    return output?.text ?? "מצטערת, לא הצלחתי להבין. אפשר לנסות שוב?";
+    return text ?? "מצטערת, לא הצלחתי להבין. אפשר לנסות שוב?";
   }
 );
