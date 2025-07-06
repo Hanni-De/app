@@ -3,7 +3,7 @@ import { doc, setDoc, serverTimestamp, collection, getDocs, query, orderBy } fro
 import type { DailyTrackerFormValues } from '@/lib/schemas/tracker.schema';
 
 interface DailyEntryData extends DailyTrackerFormValues {
-  summary: {
+  summary?: {
     message: string;
     score: number;
   };
@@ -14,22 +14,23 @@ interface DailyEntry extends DailyEntryData {
 }
 
 /**
- * Saves a daily health tracking entry for a specific user to Firestore.
+ * Saves or updates a daily health tracking entry for a specific user to Firestore.
  * The document ID is the date in YYYY-MM-DD format to ensure one entry per day.
+ * Uses { merge: true } to allow partial updates throughout the day.
  * @param userId The ID of the user.
  * @param date The date of the entry in 'YYYY-MM-DD' format.
- * @param data The data from the daily tracker form, including the AI summary.
+ * @param data The data from the daily tracker form.
  */
 export const saveDailyEntry = async (
     userId: string,
     date: string,
-    data: DailyEntryData
+    data: DailyTrackerFormValues
 ) => {
     if (!db) {
         throw new Error("Firestore is not initialized.");
     }
 
-    const entryData: DailyEntry = {
+    const entryData = {
         ...data,
         createdAt: serverTimestamp(),
     };

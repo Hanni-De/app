@@ -20,12 +20,9 @@ import { Slider } from "../ui/slider";
 import { Checkbox } from "../ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import { generateMotivationalMessage, MotivationalMessageInput } from "@/ai/flows/ai-powered-motivation";
 import { useState } from "react";
-import { DailySummary } from "./daily-summary";
-import { Separator } from "../ui/separator";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { LoaderCircle, Utensils, Droplets, HeartPulse, Scale, Activity, Smile, Bed, BrainCircuit, NotebookText, Sparkles, Moon } from "lucide-react";
+import { LoaderCircle, Utensils, HeartPulse, Scale, Activity, Smile, Bed, BrainCircuit, NotebookText, Moon } from "lucide-react";
 import { dailyTrackerFormSchema, type DailyTrackerFormValues } from "@/lib/schemas/tracker.schema";
 import { useAuth } from "@/context/auth-context";
 import { saveDailyEntry } from "@/lib/firebase/tracker";
@@ -33,7 +30,6 @@ import { saveDailyEntry } from "@/lib/firebase/tracker";
 export function DailyTrackerForm() {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
-  const [summary, setSummary] = useState<{ message: string; score: number } | null>(null);
 
   const form = useForm<DailyTrackerFormValues>({
     resolver: zodResolver(dailyTrackerFormSchema),
@@ -69,60 +65,14 @@ export function DailyTrackerForm() {
     }
     
     setIsLoading(true);
-    setSummary(null);
-
-    // Calculate compliance automatically
-    const hydrationCompliance = values.waterIntake >= 8 ? 'yes' : values.waterIntake > 0 ? 'partial' : 'no';
-    
-    const mealsEatenCount = [values.meals.breakfast, values.meals.lunch, values.meals.dinner].filter(m => m && m.trim() !== "").length;
-    const dietCompliance = mealsEatenCount >= 3 ? 'yes' : mealsEatenCount > 0 ? 'partial' : 'no';
-
-    const activityCompliance = values.activity.performed ? 'yes' : 'no';
-
-    const meditationsDoneCount = values.meditations.filter(m => m.performed).length;
-    const relaxationCompliance = meditationsDoneCount >= 2 ? 'yes' : meditationsDoneCount > 0 ? 'partial' : 'no';
-
-    const complianceScore = 
-      (hydrationCompliance === 'yes' ? 25 : hydrationCompliance === 'partial' ? 12.5 : 0) +
-      (dietCompliance === 'yes' ? 25 : dietCompliance === 'partial' ? 12.5 : 0) +
-      (activityCompliance === 'yes' ? 25 : 0) +
-      (relaxationCompliance === 'yes' ? 25 : relaxationCompliance === 'partial' ? 12.5 : 0);
-    
-    const dailySummary = `
-      User feels ${values.mood}. Fatigue: ${values.fatigueLevel}/10, Pain: ${values.painLevel}/10.
-      Compliance Score: ${Math.round(complianceScore)}/100.
-      Hydration: ${hydrationCompliance} (${values.waterIntake}/8 glasses).
-      Diet: ${dietCompliance}. Breakfast: ${values.meals.breakfast || 'N/A'}. Lunch: ${values.meals.lunch || 'N/A'}. Dinner: ${values.meals.dinner || 'N/A'}. Snacks: ${values.meals.snacks || 'N/A'}.
-      Activity: ${activityCompliance}. Details: ${values.activity.description || 'N/A'}.
-      Relaxation: ${relaxationCompliance}. ${meditationsDoneCount} sessions logged.
-      General Notes: ${values.generalNotes || 'N/A'}
-    `;
 
     try {
-      const aiInput: MotivationalMessageInput = {
-        dailySummary,
-        mood: values.mood,
-        fatigueLevel: values.fatigueLevel,
-        painLevel: values.painLevel,
-        hydrationCompliance: hydrationCompliance,
-        dietCompliance: dietCompliance,
-        activityCompliance: activityCompliance,
-        relaxationCompliance: relaxationCompliance,
-      };
-
-      const result = await generateMotivationalMessage(aiInput);
-      const newSummary = { message: result.message, score: Math.round(complianceScore) };
-      setSummary(newSummary);
-
       const entryDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-      await saveDailyEntry(user.uid, entryDate, {
-        ...values,
-        summary: newSummary,
-      });
+      await saveDailyEntry(user.uid, entryDate, values);
 
       toast({
-        title: "הסיכום שלך נשמר!",
-        description: "הנתונים נשמרו בהצלחה ותוכלי לראות אותם בדוחות.",
+        title: "הנתונים נשמרו!",
+        description: "השינויים שלך נשמרו בהצלחה.",
       });
 
     } catch (error) {
@@ -270,16 +220,9 @@ export function DailyTrackerForm() {
         <div className="flex justify-center pt-4">
           <Button type="submit" size="lg" disabled={isLoading}>
             {isLoading && <LoaderCircle className="ml-2 h-4 w-4 animate-spin" />}
-            {isLoading ? "מעבד ושומר נתונים..." : "יצירת סיכום יומי"}
+            {isLoading ? "שומר..." : "שמירת שינויים"}
           </Button>
         </div>
-
-        {summary && (
-            <div className="pt-8">
-                <Separator className="my-8"/>
-                <DailySummary motivationalMessage={summary.message} score={summary.score} />
-            </div>
-        )}
       </form>
     </Form>
   );
