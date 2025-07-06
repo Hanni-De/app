@@ -51,7 +51,10 @@ export function DailyTrackerForm() {
       activity: { performed: false, description: "" },
       probiotic: false,
       elevatedSleep: false,
+      weight: undefined,
       fatigueLevel: 5,
+      mood: "רגוע",
+      moodNotes: "",
       painLevel: 5,
       movementLimitation: 5,
       menstrualCycle: "na",
@@ -255,7 +258,7 @@ export function DailyTrackerForm() {
                           />
                           <div className="grid sm:grid-cols-2 gap-4">
                             <FormField control={form.control} name={`meditations.${index}.time`} render={({ field }) => (<FormItem><FormLabel>שעה</FormLabel><FormControl><Input type="time" {...field} /></FormControl></FormItem>)} />
-                            <FormField control={form.control} name={`meditations.${index}.duration`} render={({ field }) => (<FormItem><FormLabel>משך (דקות)</FormLabel><FormControl><Input type="number" min="0" placeholder="0" {...field} /></FormControl></FormItem>)} />
+                            <FormField control={form.control} name={`meditations.${index}.duration`} render={({ field }) => (<FormItem><FormLabel>משך (דקות)</FormLabel><FormControl><Input type="number" min="0" placeholder="0" {...field} value={field.value ?? ''} /></FormControl></FormItem>)} />
                           </div>
                           <FormField control={form.control} name={`meditations.${index}.oils`} render={({ field }) => (<FormItem><FormLabel>שמנים אתריים</FormLabel><FormControl><Input placeholder="שילוב שמנים..." {...field} /></FormControl></FormItem>)} />
                           <FormField control={form.control} name={`meditations.${index}.notes`} render={({ field }) => (<FormItem><FormLabel>הערות</FormLabel><FormControl><Textarea placeholder="איך הרגשתי..." {...field} /></FormControl></FormItem>)} />
@@ -270,11 +273,11 @@ export function DailyTrackerForm() {
           <Card>
               <CardHeader><CardTitle className="flex items-center gap-2"><HeartPulse className="text-primary"/> מדדים גופניים</CardTitle></CardHeader>
               <CardContent className="grid md:grid-cols-2 gap-6">
-                  <FormField control={form.control} name="weight" render={({ field }) => (<FormItem><FormLabel className="flex items-center gap-2"><Scale/> משקל (ק"ג)</FormLabel><FormControl><Input type="number" step="0.1" placeholder="0.0" {...field} /></FormControl></FormItem>)} />
+                  <FormField control={form.control} name="weight" render={({ field }) => (<FormItem><FormLabel className="flex items-center gap-2"><Scale/> משקל (ק"ג)</FormLabel><FormControl><Input type="number" step="0.1" placeholder="0.0" {...field} value={field.value ?? ''} /></FormControl></FormItem>)} />
                   <FormField control={form.control} name="mood" render={({ field }) => (
                       <FormItem>
                           <FormLabel className="flex items-center gap-2"><Smile/> מצב רוח</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl><SelectTrigger><SelectValue placeholder="בחרי מצב רוח..." /></SelectTrigger></FormControl>
                               <SelectContent>
                                   <SelectItem value="שמח">שמח</SelectItem>
