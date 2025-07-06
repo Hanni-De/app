@@ -28,7 +28,7 @@ export const dailyTrackerFormSchema = z.object({
   }),
   probiotic: z.boolean().default(false),
   elevatedSleep: z.boolean().default(false),
-  weight: z.preprocess((val) => (val === "" ? null : val), z.coerce.number().nullable()),
+  weight: z.number().nullable(),
   fatigueLevel: z.number().min(1).max(10).default(5),
   mood: z.string().min(1, "יש לבחור מצב רוח"),
   moodNotes: z.string().optional(),

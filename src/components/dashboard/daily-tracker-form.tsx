@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -273,7 +274,30 @@ export function DailyTrackerForm() {
           <Card>
               <CardHeader><CardTitle className="flex items-center gap-2"><HeartPulse className="text-primary"/> מדדים גופניים</CardTitle></CardHeader>
               <CardContent className="grid md:grid-cols-2 gap-6">
-                  <FormField control={form.control} name="weight" render={({ field }) => (<FormItem><FormLabel className="flex items-center gap-2"><Scale/> משקל (ק"ג)</FormLabel><FormControl><Input type="number" step="0.1" placeholder="0.0" {...field} value={field.value ?? ''} /></FormControl></FormItem>)} />
+                  <FormField
+                    control={form.control}
+                    name="weight"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center gap-2">
+                          <Scale /> משקל (ק"ג)
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.1"
+                            placeholder="0.0"
+                            {...field}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              field.onChange(value === '' ? null : Number(value));
+                            }}
+                            value={field.value ?? ''}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
                   <FormField control={form.control} name="mood" render={({ field }) => (
                       <FormItem>
                           <FormLabel className="flex items-center gap-2"><Smile/> מצב רוח</FormLabel>
