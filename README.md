@@ -57,3 +57,14 @@ This is a standard Next.js application and can be deployed to any hosting provid
 For a more robust production setup, it is recommended to use a process manager like `pm2` to keep the application running continuously. You would typically run `pm2 start npm --name "health-app" -- start`.
 
 It's also common practice to use a reverse proxy like Nginx or Apache to manage incoming traffic, handle SSL certificates, and forward requests to the Next.js application.
+
+## Troubleshooting
+
+### 'next' is not recognized...
+
+If you see an error like `'next' is not recognized as an internal or external command`, it means the project dependencies have not been installed yet.
+
+**Solution:** Make sure you have run the following command in the project terminal before trying to run `npm run dev`:
+```bash
+npm install
+```
