@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,25 +26,33 @@ import { generateMotivationalMessage, MotivationalMessageInput } from "@/ai/flow
 import { useState } from "react";
 import { DailySummary } from "./daily-summary";
 import { Separator } from "../ui/separator";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { LoaderCircle, Utensils, Droplets, HeartPulse, Scale, Activity, Smile, Bed, BrainCircuit, NotebookText, Sparkles, Moon } from "lucide-react";
 
 const formSchema = z.object({
   waterIntake: z.number().min(0).max(8).default(0),
   meals: z.object({
-    breakfast: z.boolean().default(false),
-    lunch: z.boolean().default(false),
-    dinner: z.boolean().default(false),
-    snacks: z.boolean().default(false),
-    notes: z.string().optional(),
+    breakfast: z.string().optional(),
+    lunch: z.string().optional(),
+    dinner: z.string().optional(),
+    snacks: z.string().optional(),
   }),
   meditations: z.array(
     z.object({
-      done: z.boolean().default(false),
+      time: z.string().optional(),
+      duration: z.coerce.number().min(0).optional(),
+      oils: z.string().optional(),
+      notes: z.string().optional(),
     })
-  ).default([{ done: false }, { done: false }, { done: false }, { done: false }]),
-  essentialOils: z.object({
-    blend: z.string().optional(),
-    feedback: z.string().optional(),
+  ).default([
+    { time: "", duration: 0, oils: "", notes: "" },
+    { time: "", duration: 0, oils: "", notes: "" },
+    { time: "", duration: 0, oils: "", notes: "" },
+    { time: "", duration: 0, oils: "", notes: "" }
+  ]),
+  activity: z.object({
+    performed: z.boolean().default(false),
+    description: z.string().optional(),
   }),
   probiotic: z.boolean().default(false),
   elevatedSleep: z.boolean().default(false),
@@ -56,10 +64,6 @@ const formSchema = z.object({
   movementLimitation: z.number().min(1).max(10).default(5),
   menstrualCycle: z.enum(["yes", "no", "na"]).default("na"),
   menstrualCycleNotes: z.string().optional(),
-  hydrationCompliance: z.enum(["yes", "no", "partial"]).default("no"),
-  dietCompliance: z.enum(["yes", "no", "partial"]).default("no"),
-  activityCompliance: z.enum(["yes", "no", "partial"]).default("no"),
-  relaxationCompliance: z.enum(["yes", "no", "partial"]).default("no"),
   generalNotes: z.string().optional(),
 });
 
@@ -71,9 +75,14 @@ export function DailyTrackerForm() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       waterIntake: 0,
-      meals: { breakfast: false, lunch: false, dinner: false, snacks: false, notes: "" },
-      meditations: [{ done: false }, { done: false }, { done: false }, { done: false }],
-      essentialOils: { blend: "", feedback: "" },
+      meals: { breakfast: "", lunch: "", dinner: "", snacks: "" },
+      meditations: [
+        { time: "", duration: 0, oils: "", notes: "" },
+        { time: "", duration: 0, oils: "", notes: "" },
+        { time: "", duration: 0, oils: "", notes: "" },
+        { time: "", duration: 0, oils: "", notes: "" },
+      ],
+      activity: { performed: false, description: "" },
       probiotic: false,
       elevatedSleep: false,
       fatigueLevel: 5,
@@ -81,10 +90,6 @@ export function DailyTrackerForm() {
       movementLimitation: 5,
       menstrualCycle: "na",
       menstrualCycleNotes: "",
-      hydrationCompliance: "no",
-      dietCompliance: "no",
-      activityCompliance: "no",
-      relaxationCompliance: "no",
       generalNotes: "",
     },
   });
@@ -93,16 +98,32 @@ export function DailyTrackerForm() {
     setIsLoading(true);
     setSummary(null);
 
+    // Calculate compliance automatically
+    const hydrationCompliance = values.waterIntake >= 8 ? 'yes' : values.waterIntake > 0 ? 'partial' : 'no';
+    
+    const mealsEatenCount = [values.meals.breakfast, values.meals.lunch, values.meals.dinner].filter(m => m && m.trim() !== "").length;
+    const dietCompliance = mealsEatenCount >= 3 ? 'yes' : mealsEatenCount > 0 ? 'partial' : 'no';
+
+    const activityCompliance = values.activity.performed ? 'yes' : 'no';
+
+    const meditationsDoneCount = values.meditations.filter(m => m.duration && m.duration > 0).length;
+    // Assuming the goal is at least 2 meditation sessions for 'yes'
+    const relaxationCompliance = meditationsDoneCount >= 2 ? 'yes' : meditationsDoneCount > 0 ? 'partial' : 'no';
+
     const complianceScore = 
-      (values.hydrationCompliance === 'yes' ? 25 : values.hydrationCompliance === 'partial' ? 12.5 : 0) +
-      (values.dietCompliance === 'yes' ? 25 : values.dietCompliance === 'partial' ? 12.5 : 0) +
-      (values.activityCompliance === 'yes' ? 25 : values.activityCompliance === 'partial' ? 12.5 : 0) +
-      (values.relaxationCompliance === 'yes' ? 25 : values.relaxationCompliance === 'partial' ? 12.5 : 0);
+      (hydrationCompliance === 'yes' ? 25 : hydrationCompliance === 'partial' ? 12.5 : 0) +
+      (dietCompliance === 'yes' ? 25 : dietCompliance === 'partial' ? 12.5 : 0) +
+      (activityCompliance === 'yes' ? 25 : 0) +
+      (relaxationCompliance === 'yes' ? 25 : relaxationCompliance === 'partial' ? 12.5 : 0);
     
     const dailySummary = `
       User feels ${values.mood}. Fatigue: ${values.fatigueLevel}/10, Pain: ${values.painLevel}/10.
-      Hydration: ${values.hydrationCompliance}, Diet: ${values.dietCompliance}, Activity: ${values.activityCompliance}, Relaxation: ${values.relaxationCompliance}.
-      Total compliance score is ${complianceScore}.
+      Compliance Score: ${Math.round(complianceScore)}/100.
+      Hydration: ${hydrationCompliance} (${values.waterIntake}/8 glasses).
+      Diet: ${dietCompliance}. Breakfast: ${values.meals.breakfast || 'N/A'}. Lunch: ${values.meals.lunch || 'N/A'}. Dinner: ${values.meals.dinner || 'N/A'}. Snacks: ${values.meals.snacks || 'N/A'}.
+      Activity: ${activityCompliance}. Details: ${values.activity.description || 'N/A'}.
+      Relaxation: ${relaxationCompliance}. ${meditationsDoneCount} sessions logged.
+      General Notes: ${values.generalNotes || 'N/A'}
     `;
 
     try {
@@ -111,10 +132,10 @@ export function DailyTrackerForm() {
         mood: values.mood,
         fatigueLevel: values.fatigueLevel,
         painLevel: values.painLevel,
-        hydrationCompliance: values.hydrationCompliance,
-        dietCompliance: values.dietCompliance,
-        activityCompliance: values.activityCompliance,
-        relaxationCompliance: values.relaxationCompliance,
+        hydrationCompliance: hydrationCompliance,
+        dietCompliance: dietCompliance,
+        activityCompliance: activityCompliance,
+        relaxationCompliance: relaxationCompliance,
       };
 
       const result = await generateMotivationalMessage(aiInput);
@@ -154,31 +175,37 @@ export function DailyTrackerForm() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Utensils className="text-primary"/> תזונה</CardTitle>
+                <CardDescription>פרטי מה אכלת בכל ארוחה.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                  <div className="flex flex-wrap gap-4">
-                      <FormField control={form.control} name="meals.breakfast" render={({ field }) => (<FormItem className="flex items-center gap-2 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel>בוקר</FormLabel></FormItem>)} />
-                      <FormField control={form.control} name="meals.lunch" render={({ field }) => (<FormItem className="flex items-center gap-2 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel>צהריים</FormLabel></FormItem>)} />
-                      <FormField control={form.control} name="meals.dinner" render={({ field }) => (<FormItem className="flex items-center gap-2 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel>ערב</FormLabel></FormItem>)} />
-                      <FormField control={form.control} name="meals.snacks" render={({ field }) => (<FormItem className="flex items-center gap-2 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel>נשנושים</FormLabel></FormItem>)} />
-                  </div>
-                  <FormField control={form.control} name="meals.notes" render={({ field }) => (<FormItem><FormLabel>הערות תזונה</FormLabel><FormControl><Textarea placeholder="מה אכלתי..." {...field} /></FormControl></FormItem>)} />
+                  <FormField control={form.control} name="meals.breakfast" render={({ field }) => (<FormItem><FormLabel>ארוחת בוקר</FormLabel><FormControl><Textarea placeholder="מה אכלתי..." {...field} /></FormControl></FormItem>)} />
+                  <FormField control={form.control} name="meals.lunch" render={({ field }) => (<FormItem><FormLabel>ארוחת צהריים</FormLabel><FormControl><Textarea placeholder="מה אכלתי..." {...field} /></FormControl></FormItem>)} />
+                  <FormField control={form.control} name="meals.dinner" render={({ field }) => (<FormItem><FormLabel>ארוחת ערב</FormLabel><FormControl><Textarea placeholder="מה אכלתי..." {...field} /></FormControl></FormItem>)} />
+                  <FormField control={form.control} name="meals.snacks" render={({ field }) => (<FormItem><FormLabel>נשנושים</FormLabel><FormControl><Textarea placeholder="מה אכלתי..." {...field} /></FormControl></FormItem>)} />
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><BrainCircuit className="text-primary"/> הרפיה ורוגע</CardTitle>
+                <CardDescription>פרטי את תרגילי ההרפיה שביצעת.</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                  <FormLabel>תרגילי הרפיה (מדיטציות)</FormLabel>
-                   <div className="flex flex-wrap gap-4">
-                     {[...Array(4)].map((_, index) => (
-                        <FormField key={index} control={form.control} name={`meditations.${index}.done`} render={({ field }) => (<FormItem className="flex items-center gap-2 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel>תרגיל {index+1}</FormLabel></FormItem>)} />
-                     ))}
-                   </div>
-                  <FormField control={form.control} name="essentialOils.blend" render={({ field }) => (<FormItem><FormLabel>שמנים אתריים</FormLabel><FormControl><Input placeholder="שילוב שמנים..." {...field} /></FormControl></FormItem>)} />
-                  <FormField control={form.control} name="essentialOils.feedback" render={({ field }) => (<FormItem><FormLabel>משוב על השמנים</FormLabel><FormControl><Textarea placeholder="מה אהבתי יותר ומה פחות..." {...field} /></FormControl></FormItem>)} />
+              <CardContent>
+                 <Accordion type="multiple" className="w-full">
+                  {[...Array(4)].map((_, index) => (
+                    <AccordionItem value={`item-${index + 1}`} key={index}>
+                      <AccordionTrigger>תרגיל הרפיה {index + 1}</AccordionTrigger>
+                      <AccordionContent className="space-y-4 pt-4">
+                        <div className="grid sm:grid-cols-2 gap-4">
+                          <FormField control={form.control} name={`meditations.${index}.time`} render={({ field }) => (<FormItem><FormLabel>שעה</FormLabel><FormControl><Input type="time" {...field} /></FormControl></FormItem>)} />
+                          <FormField control={form.control} name={`meditations.${index}.duration`} render={({ field }) => (<FormItem><FormLabel>משך (דקות)</FormLabel><FormControl><Input type="number" min="0" placeholder="0" {...field} /></FormControl></FormItem>)} />
+                        </div>
+                        <FormField control={form.control} name={`meditations.${index}.oils`} render={({ field }) => (<FormItem><FormLabel>שמנים אתריים</FormLabel><FormControl><Input placeholder="שילוב שמנים..." {...field} /></FormControl></FormItem>)} />
+                        <FormField control={form.control} name={`meditations.${index}.notes`} render={({ field }) => (<FormItem><FormLabel>הערות</FormLabel><FormControl><Textarea placeholder="איך הרגשתי..." {...field} /></FormControl></FormItem>)} />
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
               </CardContent>
             </Card>
         </div>
@@ -186,7 +213,7 @@ export function DailyTrackerForm() {
         <Card>
             <CardHeader><CardTitle className="flex items-center gap-2"><HeartPulse className="text-primary"/> מדדים גופניים</CardTitle></CardHeader>
             <CardContent className="grid md:grid-cols-2 gap-6">
-                <FormField control={form.control} name="weight" render={({ field }) => (<FormItem><FormLabel className="flex items-center gap-2"><Scale/> משקל (ק"ג)</FormLabel><FormControl><Input type="number" step="0.1" {...field} /></FormControl></FormItem>)} />
+                <FormField control={form.control} name="weight" render={({ field }) => (<FormItem><FormLabel className="flex items-center gap-2"><Scale/> משקל (ק"ג)</FormLabel><FormControl><Input type="number" step="0.1" placeholder="0.0" {...field} /></FormControl></FormItem>)} />
                 <FormField control={form.control} name="mood" render={({ field }) => (
                     <FormItem>
                         <FormLabel className="flex items-center gap-2"><Smile/> מצב רוח</FormLabel>
@@ -224,20 +251,25 @@ export function DailyTrackerForm() {
         </Card>
 
         <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2"><Moon className="text-primary"/> הרגלי לילה</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="flex items-center gap-2"><Activity className="text-primary"/> פעילות גופנית</CardTitle></CardHeader>
             <CardContent className="space-y-4">
-                 <FormField control={form.control} name="probiotic" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-4"><div className="space-y-0.5"><FormLabel>לקיחת פרוביוטיקה לפני השינה</FormLabel></div><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl></FormItem>)} />
-                 <FormField control={form.control} name="elevatedSleep" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-4"><div className="space-y-0.5"><FormLabel>שינה בהגבהה</FormLabel></div><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl></FormItem>)} />
+                <FormField control={form.control} name="activity.performed" render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                            <FormLabel>האם ביצעת פעילות גופנית היום?</FormLabel>
+                        </div>
+                        <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                    </FormItem>
+                )} />
+                <FormField control={form.control} name="activity.description" render={({ field }) => (<FormItem><FormLabel>פירוט הפעילות</FormLabel><FormControl><Textarea placeholder="איזו פעילות, כמה זמן, ואיך הרגשתי..." {...field} /></FormControl></FormItem>)} />
             </CardContent>
         </Card>
 
         <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2"><Sparkles className="text-primary"/> סיכום יעדים יומי</CardTitle><CardDescription>איך הייתה העמידה שלך ביעדים היום?</CardDescription></CardHeader>
-            <CardContent className="grid md:grid-cols-2 gap-6">
-                 <FormField control={form.control} name="hydrationCompliance" render={({ field }) => (<FormItem><FormLabel>שתייה</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex gap-4"><FormItem className="flex items-center space-x-2 space-x-reverse space-y-0"><FormControl><RadioGroupItem value="yes" /></FormControl><FormLabel>כן</FormLabel></FormItem><FormItem className="flex items-center space-x-2 space-x-reverse space-y-0"><FormControl><RadioGroupItem value="no" /></FormControl><FormLabel>לא</FormLabel></FormItem><FormItem className="flex items-center space-x-2 space-x-reverse space-y-0"><FormControl><RadioGroupItem value="partial" /></FormControl><FormLabel>חלקית</FormLabel></FormItem></RadioGroup></FormControl></FormItem>)} />
-                 <FormField control={form.control} name="dietCompliance" render={({ field }) => (<FormItem><FormLabel>תזונה</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex gap-4"><FormItem className="flex items-center space-x-2 space-x-reverse space-y-0"><FormControl><RadioGroupItem value="yes" /></FormControl><FormLabel>כן</FormLabel></FormItem><FormItem className="flex items-center space-x-2 space-x-reverse space-y-0"><FormControl><RadioGroupItem value="no" /></FormControl><FormLabel>לא</FormLabel></FormItem><FormItem className="flex items-center space-x-2 space-x-reverse space-y-0"><FormControl><RadioGroupItem value="partial" /></FormControl><FormLabel>חלקית</FormLabel></FormItem></RadioGroup></FormControl></FormItem>)} />
-                 <FormField control={form.control} name="activityCompliance" render={({ field }) => (<FormItem><FormLabel>פעילות גופנית</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex gap-4"><FormItem className="flex items-center space-x-2 space-x-reverse space-y-0"><FormControl><RadioGroupItem value="yes" /></FormControl><FormLabel>כן</FormLabel></FormItem><FormItem className="flex items-center space-x-2 space-x-reverse space-y-0"><FormControl><RadioGroupItem value="no" /></FormControl><FormLabel>לא</FormLabel></FormItem><FormItem className="flex items-center space-x-2 space-x-reverse space-y-0"><FormControl><RadioGroupItem value="partial" /></FormControl><FormLabel>חלקית</FormLabel></FormItem></RadioGroup></FormControl></FormItem>)} />
-                 <FormField control={form.control} name="relaxationCompliance" render={({ field }) => (<FormItem><FormLabel>הרפיה</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex gap-4"><FormItem className="flex items-center space-x-2 space-x-reverse space-y-0"><FormControl><RadioGroupItem value="yes" /></FormControl><FormLabel>כן</FormLabel></FormItem><FormItem className="flex items-center space-x-2 space-x-reverse space-y-0"><FormControl><RadioGroupItem value="no" /></FormControl><FormLabel>לא</FormLabel></FormItem><FormItem className="flex items-center space-x-2 space-x-reverse space-y-0"><FormControl><RadioGroupItem value="partial" /></FormControl><FormLabel>חלקית</FormLabel></FormItem></RadioGroup></FormControl></FormItem>)} />
+            <CardHeader><CardTitle className="flex items-center gap-2"><Moon className="text-primary"/> הרגלי לילה</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+                 <FormField control={form.control} name="probiotic" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-4"><div className="space-y-0.5"><FormLabel>לקיחת פרוביוטיקה לפני השינה</FormLabel></div><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl></FormItem>)} />
+                 <FormField control={form.control} name="elevatedSleep" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-4"><div className="space-y-0.5"><FormLabel>שינה בהגבהה</FormLabel></div><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl></FormItem>)} />
             </CardContent>
         </Card>
         
