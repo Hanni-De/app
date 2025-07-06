@@ -51,7 +51,7 @@ export function DailyTrackerForm() {
       activity: { performed: false, description: "" },
       probiotic: false,
       elevatedSleep: false,
-      weight: undefined,
+      weight: null,
       fatigueLevel: 5,
       mood: "רגוע",
       moodNotes: "",
