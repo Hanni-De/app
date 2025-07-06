@@ -15,8 +15,15 @@ let auth: Auth | null = null;
 
 // Initialize Firebase only if the API key is provided
 if (firebaseConfig.apiKey) {
-  app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-  auth = getAuth(app);
+  try {
+    app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+    auth = getAuth(app);
+  } catch (error) {
+    console.error("Firebase initialization failed:", error);
+    // If initialization fails, ensure app and auth are null.
+    app = null;
+    auth = null;
+  }
 } else {
   // This warning will be logged on both server and client if the key is missing.
   console.warn(
