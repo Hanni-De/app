@@ -2,12 +2,10 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -28,52 +26,17 @@ import { DailySummary } from "./daily-summary";
 import { Separator } from "../ui/separator";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { LoaderCircle, Utensils, Droplets, HeartPulse, Scale, Activity, Smile, Bed, BrainCircuit, NotebookText, Sparkles, Moon } from "lucide-react";
-
-const formSchema = z.object({
-  waterIntake: z.number().min(0).max(8).default(0),
-  meals: z.object({
-    breakfast: z.string().optional(),
-    lunch: z.string().optional(),
-    dinner: z.string().optional(),
-    snacks: z.string().optional(),
-  }),
-  meditations: z.array(
-    z.object({
-      performed: z.boolean().default(false),
-      time: z.string().optional(),
-      duration: z.coerce.number().min(0).optional(),
-      oils: z.string().optional(),
-      notes: z.string().optional(),
-    })
-  ).default([
-    { performed: false, time: "", duration: 0, oils: "", notes: "" },
-    { performed: false, time: "", duration: 0, oils: "", notes: "" },
-    { performed: false, time: "", duration: 0, oils: "", notes: "" },
-    { performed: false, time: "", duration: 0, oils: "", notes: "" }
-  ]),
-  activity: z.object({
-    performed: z.boolean().default(false),
-    description: z.string().optional(),
-  }),
-  probiotic: z.boolean().default(false),
-  elevatedSleep: z.boolean().default(false),
-  weight: z.coerce.number().optional(),
-  fatigueLevel: z.number().min(1).max(10).default(5),
-  mood: z.string().min(1, "יש לבחור מצב רוח"),
-  moodNotes: z.string().optional(),
-  painLevel: z.number().min(1).max(10).default(5),
-  movementLimitation: z.number().min(1).max(10).default(5),
-  menstrualCycle: z.enum(["yes", "no", "na"]).default("na"),
-  menstrualCycleNotes: z.string().optional(),
-  generalNotes: z.string().optional(),
-});
+import { dailyTrackerFormSchema, type DailyTrackerFormValues } from "@/lib/schemas/tracker.schema";
+import { useAuth } from "@/context/auth-context";
+import { saveDailyEntry } from "@/lib/firebase/tracker";
 
 export function DailyTrackerForm() {
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [summary, setSummary] = useState<{ message: string; score: number } | null>(null);
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+  const form = useForm<DailyTrackerFormValues>({
+    resolver: zodResolver(dailyTrackerFormSchema),
     defaultValues: {
       waterIntake: 0,
       meals: { breakfast: "", lunch: "", dinner: "", snacks: "" },
@@ -95,7 +58,16 @@ export function DailyTrackerForm() {
     },
   });
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmit(values: DailyTrackerFormValues) {
+    if (!user) {
+      toast({
+        title: "שגיאה",
+        description: "עליך להתחבר כדי לשמור נתונים.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsLoading(true);
     setSummary(null);
 
@@ -108,7 +80,6 @@ export function DailyTrackerForm() {
     const activityCompliance = values.activity.performed ? 'yes' : 'no';
 
     const meditationsDoneCount = values.meditations.filter(m => m.performed).length;
-    // Assuming the goal is at least 2 meditation sessions for 'yes'
     const relaxationCompliance = meditationsDoneCount >= 2 ? 'yes' : meditationsDoneCount > 0 ? 'partial' : 'no';
 
     const complianceScore = 
@@ -140,17 +111,25 @@ export function DailyTrackerForm() {
       };
 
       const result = await generateMotivationalMessage(aiInput);
-      setSummary({ message: result.message, score: Math.round(complianceScore) });
+      const newSummary = { message: result.message, score: Math.round(complianceScore) };
+      setSummary(newSummary);
+
+      const entryDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      await saveDailyEntry(user.uid, entryDate, {
+        ...values,
+        summary: newSummary,
+      });
+
       toast({
-        title: "הסיכום שלך מוכן!",
-        description: "גללו מטה כדי לראות את ההודעה המותאמת אישית.",
+        title: "הסיכום שלך נשמר!",
+        description: "הנתונים נשמרו בהצלחה ותוכלי לראות אותם בדוחות.",
       });
 
     } catch (error) {
-      console.error("AI message generation failed:", error);
+      console.error("Submission failed:", error);
       toast({
         title: "שגיאה",
-        description: "הייתה בעיה ביצירת ההודעה. נסו שוב מאוחר יותר.",
+        description: "הייתה בעיה בשמירת הנתונים. נסו שוב מאוחר יותר.",
         variant: "destructive",
       });
     } finally {
@@ -291,7 +270,7 @@ export function DailyTrackerForm() {
         <div className="flex justify-center pt-4">
           <Button type="submit" size="lg" disabled={isLoading}>
             {isLoading && <LoaderCircle className="ml-2 h-4 w-4 animate-spin" />}
-            {isLoading ? "מעבד נתונים..." : "יצירת סיכום יומי"}
+            {isLoading ? "מעבד ושומר נתונים..." : "יצירת סיכום יומי"}
           </Button>
         </div>
 
