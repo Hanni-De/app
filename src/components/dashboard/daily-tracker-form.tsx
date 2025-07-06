@@ -39,16 +39,17 @@ const formSchema = z.object({
   }),
   meditations: z.array(
     z.object({
+      performed: z.boolean().default(false),
       time: z.string().optional(),
       duration: z.coerce.number().min(0).optional(),
       oils: z.string().optional(),
       notes: z.string().optional(),
     })
   ).default([
-    { time: "", duration: 0, oils: "", notes: "" },
-    { time: "", duration: 0, oils: "", notes: "" },
-    { time: "", duration: 0, oils: "", notes: "" },
-    { time: "", duration: 0, oils: "", notes: "" }
+    { performed: false, time: "", duration: 0, oils: "", notes: "" },
+    { performed: false, time: "", duration: 0, oils: "", notes: "" },
+    { performed: false, time: "", duration: 0, oils: "", notes: "" },
+    { performed: false, time: "", duration: 0, oils: "", notes: "" }
   ]),
   activity: z.object({
     performed: z.boolean().default(false),
@@ -77,10 +78,10 @@ export function DailyTrackerForm() {
       waterIntake: 0,
       meals: { breakfast: "", lunch: "", dinner: "", snacks: "" },
       meditations: [
-        { time: "", duration: 0, oils: "", notes: "" },
-        { time: "", duration: 0, oils: "", notes: "" },
-        { time: "", duration: 0, oils: "", notes: "" },
-        { time: "", duration: 0, oils: "", notes: "" },
+        { performed: false, time: "", duration: 0, oils: "", notes: "" },
+        { performed: false, time: "", duration: 0, oils: "", notes: "" },
+        { performed: false, time: "", duration: 0, oils: "", notes: "" },
+        { performed: false, time: "", duration: 0, oils: "", notes: "" },
       ],
       activity: { performed: false, description: "" },
       probiotic: false,
@@ -106,7 +107,7 @@ export function DailyTrackerForm() {
 
     const activityCompliance = values.activity.performed ? 'yes' : 'no';
 
-    const meditationsDoneCount = values.meditations.filter(m => m.duration && m.duration > 0).length;
+    const meditationsDoneCount = values.meditations.filter(m => m.performed).length;
     // Assuming the goal is at least 2 meditation sessions for 'yes'
     const relaxationCompliance = meditationsDoneCount >= 2 ? 'yes' : meditationsDoneCount > 0 ? 'partial' : 'no';
 
@@ -196,6 +197,18 @@ export function DailyTrackerForm() {
                     <AccordionItem value={`item-${index + 1}`} key={index}>
                       <AccordionTrigger>תרגיל הרפיה {index + 1}</AccordionTrigger>
                       <AccordionContent className="space-y-4 pt-4">
+                         <FormField
+                          control={form.control}
+                          name={`meditations.${index}.performed`}
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                              <div className="space-y-0.5">
+                                <FormLabel>האם תרגיל זה בוצע?</FormLabel>
+                              </div>
+                              <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                            </FormItem>
+                          )}
+                        />
                         <div className="grid sm:grid-cols-2 gap-4">
                           <FormField control={form.control} name={`meditations.${index}.time`} render={({ field }) => (<FormItem><FormLabel>שעה</FormLabel><FormControl><Input type="time" {...field} /></FormControl></FormItem>)} />
                           <FormField control={form.control} name={`meditations.${index}.duration`} render={({ field }) => (<FormItem><FormLabel>משך (דקות)</FormLabel><FormControl><Input type="number" min="0" placeholder="0" {...field} /></FormControl></FormItem>)} />
