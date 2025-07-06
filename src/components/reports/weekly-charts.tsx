@@ -9,6 +9,7 @@ import { toast } from "@/hooks/use-toast";
 import { ChartTooltipContent, ChartContainer } from "@/components/ui/chart";
 import { useAuth } from "@/context/auth-context";
 import { getDailyEntries } from "@/lib/firebase/tracker";
+import { getUserSettings } from "@/lib/firebase/settings";
 import type { DailyTrackerFormValues } from "@/lib/schemas/tracker.schema";
 import { format } from 'date-fns';
 
@@ -43,6 +44,7 @@ export function WeeklyCharts() {
   const { user } = useAuth();
   const [chartData, setChartData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSending, setIsSending] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -88,12 +90,39 @@ export function WeeklyCharts() {
     toast({ title: "הורדת הדוח החלה" });
   };
 
-  const handleSendEmail = () => {
-    toast({
-      title: "הדוח נשלח בהצלחה!",
-      description: "הסיכום נשלח למייל של הרופא.",
-    });
+  const handleSendEmail = async () => {
+    if (!user) {
+      toast({ title: "שגיאה", description: "יש להתחבר כדי לשלוח דוחות", variant: "destructive" });
+      return;
+    }
+    setIsSending(true);
+    try {
+      const settings = await getUserSettings(user.uid);
+      if (settings && settings.doctorEmail) {
+        // This is a simulation. In a real app, you would trigger a backend function here.
+        console.log(`Simulating sending email to ${settings.doctorEmail}`);
+        toast({
+          title: "הדוח נשלח בהצלחה!",
+          description: `הסיכום נשלח למייל: ${settings.doctorEmail}`,
+        });
+      } else {
+        toast({
+          title: "לא הוגדרה כתובת מייל",
+          description: "יש להגדיר כתובת אימייל של רופא בעמוד ההגדרות.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+       toast({
+          title: "שגיאה",
+          description: "אירעה שגיאה בשליחת המייל. נסה שוב מאוחר יותר.",
+          variant: "destructive",
+        });
+    } finally {
+      setIsSending(false);
+    }
   };
+
 
   if (isLoading) {
       return (
@@ -132,7 +161,8 @@ export function WeeklyCharts() {
                 <Download className="ml-2 h-4 w-4" />
                 יצוא ל-CSV
             </Button>
-            <Button onClick={handleSendEmail}>
+            <Button onClick={handleSendEmail} disabled={isSending}>
+                {isSending && <LoaderCircle className="ml-2 h-4 w-4 animate-spin" />}
                 <Mail className="ml-2 h-4 w-4" />
                 שליחה לרופא
             </Button>
